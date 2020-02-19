@@ -1,0 +1,5 @@
+go.property("show", true)
+
+function init(self)
+	msg.post("#gui", self.show and "enable" or "disable")
+end

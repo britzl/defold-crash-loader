@@ -1,0 +1,98 @@
+local crashloader = require "crashloader.crashloader"
+
+local LOG = {}
+
+local function log(s, ...)
+	s = s:format(...)
+	print(s)
+	table.insert(LOG, s)
+	if #LOG > 100 then
+		table.remove(LOG, 1)
+	end
+	local text = table.concat(LOG, "\n")
+	gui.set_text(gui.get_node("log"), text)
+end
+
+local function clear()
+	LOG = {}
+	gui.set_text(gui.get_node("log"), "")
+end
+
+local function show_modules(self)
+	if not self.crash then log("No crash found") return end
+	clear()
+	for i,v in ipairs(self.crash.modules) do
+		log("%d = %s (%s)", i, v.name, v.address)
+	end
+end
+
+local function show_backtrace(self)
+	if not self.crash then log("No crash found") return end
+	clear()
+	for i,v in ipairs(self.crash.backtrace) do
+		log("%d = %s", i, v)
+	end
+end
+
+local function show_sysfields(self)
+	if not self.crash then log("No crash found") return end
+	clear()
+	for k,v in pairs(self.crash.sysfields) do
+		log("%s = %s", k, tostring(v))
+	end
+end
+
+local function show_userfields(self)
+	if not self.crash then log("No crash found") return end
+	clear()
+	for k,v in ipairs(self.crash.userfields) do
+		log("%i = %s", k, tostring(v))
+	end
+end
+
+local function show_extradata(self)
+	if not self.crash then log("No crash found") return end
+	clear()
+	log("%s", self.crash.extra_data)
+end
+
+function init(self)
+	local w, h = window.get_size()
+	gui.set_size(gui.get_node("bg"), vmath.vector3(w, h, 0))
+	gui.set_size(gui.get_node("log"), vmath.vector3(w, h, 0))
+	gui.set_position(gui.get_node("bg"), vmath.vector3(0, h, 0))
+	self.crash = crashloader.load()
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("load") then
+		self.crash = crashloader.load()
+	elseif message_id == hash("enable") then
+		show_modules(self)
+		msg.post(".", "acquire_input_focus")
+	elseif message_id == hash("disable") then
+		msg.post(".", "release_input_focus")
+	end
+end
+
+local function pick_node(id, action)
+	return gui.pick_node(gui.get_node(id), action.x, action.y)
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("touch") and action.released then
+		if pick_node("modules", action) then
+			show_modules(self)
+		elseif pick_node("backtrace", action) then
+			show_backtrace(self)
+		elseif pick_node("sysfields", action) then
+			show_sysfields(self)
+		elseif pick_node("userfields", action) then
+			show_userfields(self)
+		elseif pick_node("extradata", action) then
+			show_extradata(self)
+		elseif pick_node("close", action) then
+			msg.post(".", "disable")
+		end
+	end
+end
